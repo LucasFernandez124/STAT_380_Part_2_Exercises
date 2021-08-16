@@ -361,7 +361,8 @@ The market segmentation of twitter followers is shown in the facet plot below. T
 ```{r Kmeans++ Optimized K, echo=FALSE,warning=FALSE}
 library(cluster)
 
-clusGap(x = Tweets, FUNcluster = kmeanspp, K.max = 20, B = 15, nstart = 30)
+#I commented this out since it takes like an hour to run and when I try to knit it, R gets mad at me
+#clusGap(x = Tweets, FUNcluster = kmeanspp, K.max = 20, B = 15, nstart = 30)
 
 #clusGap gave me a K = 15
 library(ggplot2)
@@ -438,6 +439,8 @@ names(train_doc) = doc_list
 names(train_doc) = sub('.txt', '', names(train_doc))
 reuters_corpus_train = Corpus(VectorSource(train_doc))
 
+print(reuters_corpus_train)
+
 ```
 
 ## Part b
@@ -475,6 +478,7 @@ DTM_transpose = DTM_transpose[, order(colnames(DTM_transpose))]
 #running PCA on the previous matrix
 Z = prcomp(DTM_transpose, rank = 80)
 
+print(Z$x)
 ```
 
 ## Part c
@@ -523,7 +527,7 @@ DTM_transpose_test = DTM_transpose_test[, order(colnames(DTM_transpose_test))]
 #applying PCA weights
 Z_test = predict(Z,DTM_transpose_test)
 
-
+print(Z_test)
 ```
 
 ## Part d
@@ -551,6 +555,10 @@ accuracy_matrix = as.data.frame(table(Actual = labels_test, Predicted = knn.pred
 accuracy_correct = accuracy_matrix[accuracy_matrix[,1]==accuracy_matrix[,2],]
 accuracy = sum(accuracy_correct[,3])/2500
 
+print(accuracy_matrix)
+
+print('The accuracy of the model is')
+accuracy
 ```
 
 # Problem 6
