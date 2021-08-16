@@ -1,0 +1,627 @@
+---
+title: "Exercise_1"
+author: "Lucas Fernandez"
+date: "8/9/2021"
+output:
+
+
+  pdf_document: default
+  html_document: default
+---
+
+GITHUB link below
+
+https://github.com/LucasFernandez124/STAT_380_Part_2_Exercises
+
+# Problem 1
+
+## Part a
+
+I am going to start with following the Excel guru's path to see the process they used and then look for confounding variables and bad assumptions
+
+```{r Excel guru, echo=FALSE, warning=FALSE}
+library(ggplot2)
+
+setwd("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data")
+buildings = read.csv("greenbuildings.csv")
+
+buildings_10 = subset(buildings, leasing_rate > 10)
+buildings_green = subset(buildings_10, green_rating == 1)
+buildings_not_green = subset(buildings_10, green_rating == 0)
+
+ggplot(buildings_10, aes(x = as.factor(buildings_10$green_rating), y = buildings_10$Rent)) +
+  geom_boxplot() + xlab('Green Rating (1 = Green)') + ylab('Rent per sqft per year ($)') + ggtitle('Rent of Green and Non-Green Buildings')
+
+ggplot(buildings_10, aes(x = as.factor(buildings_10$green_rating), y = buildings_10$leasing_rate)) + geom_boxplot() + xlab('Green Rating (1 = Green)') + ylab('Average Occupancy') + ggtitle('Average Occupancy of Green and Non-Green Buildings')
+
+
+```
+
+## Part b
+
+While there was nothing "wrong" with the analysis that the Excel guru did, he failed to truly address whether green building command higher rents holding all things equal. As seen in the first bar graph, the reason why rent of green buildings is higher is that rents with utilities included are much higher than their non-green building counterparts. However, rent when utilities are not included are lower for green buildings than for non-green buildings. This indicates the value of green buildings may not be naturally higher but rather than green buildings have higher utility bills (despite being green) raising rent prices when the bill is included in rent.
+
+I looked at heating/cooling degree days and the cost of electricity to better understand the disparity in utility costs between the two sets of buildings. It seems that non-green buildings actually needed more electricity for temperature control than green buildings but the electricity costs for green buildings are higher. This higher cost for electricity likely explains why rents for green buildings, where utilities were included in rent, were so much higher than rent for non-green buildings. In conclusion, I would advise the developer that rent prices of green buildings may be higher than non-green due to the buildings having higher electricity costs. The true cost difference between green and non-green buildings is likely lower than the developer should expect and a green building may need longer to "truly" recuperate costs spent on building green.
+
+```{r Confounding variables, echo=FALSE, warning=FALSE}
+
+ggplot(buildings_10, aes(x=as.factor(buildings_10$green_rating), y=buildings_10$Rent, fill=as.factor(buildings_10$net))) + geom_boxplot() + xlab('Green Rating (1 = Green)') + ylab('Rent ($)') + ggtitle('Average Rent of Green and Non-Green Buildings split on Inclusion of Utilities') + labs(fill = 'Utilities\nInclusion\n(1 = Utils\nnot included)')
+
+ggplot(buildings_10, aes(x = as.factor(buildings_10$green_rating), y = buildings_10$total_dd_07)) + geom_boxplot() + xlab('Green Rating (1 = Green)') + ylab('Degree Days') + ggtitle('Average Degree Days of Cooling/Heating of Green and Non-Green Buildings')
+
+ggplot(buildings_10, aes(x = as.factor(buildings_10$green_rating), y = buildings_10$Electricity_Costs)) + geom_boxplot() + xlab('Green Rating (1 = Green)') + ylab('Electricity Cost ($)') + ggtitle('Average Electricity Cost of Green and Non-Green Buildings')
+
+```
+
+
+# Problem 2
+
+Have you ever been stuck taxi-ing at the airport after a long flight and you are wondering when you can finally stand up? Or maybe you are waiting to get up in the air before a trip thinking that you just want to get up in the air so you can make some progress to your destination.
+
+My graphs will look at a combination of variables that affect the time it takes to taxi in after a flight and the amount of time it takes to taxi out before a flight. The variables I will be looking at will be taxi time in and out versus air time while controlling for day of the week. Intuitively, different days of the week may have different average taxi times due to how busy the weekends are. I am basically trying to see if that feeling of a long taxi time after/before a long flight is true or just our imaginations.
+
+## Part a
+
+```{r Airport preprocessing, echo=FALSE, warning=FALSE}
+
+setwd("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data")
+airport_data = read.csv("ABIA.csv")
+
+#Taking the destination so I know whether I need use taxi in or out of Austin
+my_data = cbind.data.frame(DayOfWeek = airport_data$DayOfWeek, AirTime = airport_data$AirTime, TaxiIn = airport_data$TaxiIn, TaxiOut = airport_data$TaxiOut, Dest = airport_data$Dest)
+
+Taxi_in = subset(my_data[,c(1:3,5)], Dest %in% "AUS")
+Taxi_out = subset(my_data[,c(1,2,4,5)], Dest %in% "AUS" == FALSE)
+
+#making a day of week list for later use
+DayofWeek = c('Mon','Tues','Wed','Thur','Fri','Sat','Sun')
+
+#for loop to make a bunch of data frames with the different days of the week
+for(i in 1:7) { 
+ nam <- paste(DayofWeek[i], "Taxi_in", sep = "_")
+ assign(nam, subset(Taxi_in[,1:3], DayOfWeek %in% i))
+ assign(nam,setNames(aggregate(get(nam)[,3], list(get(nam)$AirTime), mean),c('AirTime','Taxi_in')))
+ 
+ nam <- paste(DayofWeek[i], "Taxi_out", sep = "_")
+ assign(nam, subset(Taxi_out[,1:3], DayOfWeek %in% i))
+ assign(nam,setNames(aggregate(get(nam)[,3], list(get(nam)$AirTime), mean),c('AirTime','Taxi_out')))
+ 
+}
+
+```
+
+## Part b
+
+I'll let the graphs speak for themselves for the most part. I think the most interesting part is that the taxi out time is actually greater for longer flights. If you are sitting there thinking I just want to get my long flight out of the way, then you are not imagining that the wait is longer than usual. However, the opposite is true for taxing in as the taxi time is lesser for longer flights. I guess air traffic control knows people want to get off the plane ASAP.
+
+```{r Graphs, echo=FALSE}
+
+#plotting the initial plot
+plot(Mon_Taxi_in$AirTime,Mon_Taxi_in$Taxi_in, pch = 1, cex = 1, col = 'red', ylim=range(c(Mon_Taxi_in$Taxi_in,Mon_Taxi_out$Taxi_out)), xlim = range(c(Mon_Taxi_in$AirTime,Mon_Taxi_out$AirTime)), xlab = '', ylab = '')
+
+#I have to do this whole new par thing because r and ggplot do not like to plot these plots together if they have the same x values. ggplot will only do it if you make the second set of points a factor in the same data frame
+par(new = TRUE)
+plot(Mon_Taxi_out$AirTime,Mon_Taxi_out$Taxi_out, pch = 1, cex = 1, col = 'blue', ylim=range(c(Mon_Taxi_in$Taxi_in,Mon_Taxi_out$Taxi_out)), xlim = range(c(Mon_Taxi_in$AirTime,Mon_Taxi_out$AirTime)), main = 'Monday', xlab = 'Air Time (min)', ylab = 'Taxi Time (min)')
+legend('topleft',c("Taxi In","Taxi Out"),col=c("red","blue"),pch=c(1,1))
+
+#everything past this is just repeats of the same code for each of the different days of the week
+plot(Tues_Taxi_in$AirTime,Tues_Taxi_in$Taxi_in, pch = 1, cex = 1, col = 'red', ylim=range(c(Tues_Taxi_in$Taxi_in,Tues_Taxi_out$Taxi_out)), xlim = range(c(Tues_Taxi_in$AirTime,Tues_Taxi_out$AirTime)), xlab = '', ylab = '')
+
+par(new = TRUE)
+plot(Tues_Taxi_out$AirTime,Tues_Taxi_out$Taxi_out, pch = 1, cex = 1, col = 'blue', ylim=range(c(Tues_Taxi_in$Taxi_in,Tues_Taxi_out$Taxi_out)), xlim = range(c(Tues_Taxi_in$AirTime,Tues_Taxi_out$AirTime)), main = 'Tuesday', xlab = 'Air Time (min)', ylab = 'Taxi Time (min)')
+legend('topleft',c("Taxi In","Taxi Out"),col=c("red","blue"),pch=c(1,1))
+
+plot(Wed_Taxi_in$AirTime,Wed_Taxi_in$Taxi_in, pch = 1, cex = 1, col = 'red', ylim=range(c(Wed_Taxi_in$Taxi_in,Wed_Taxi_out$Taxi_out)), xlim = range(c(Wed_Taxi_in$AirTime,Wed_Taxi_out$AirTime)), xlab = '', ylab = '')
+
+par(new = TRUE)
+plot(Wed_Taxi_out$AirTime,Wed_Taxi_out$Taxi_out, pch = 1, cex = 1, col = 'blue', ylim=range(c(Wed_Taxi_in$Taxi_in,Wed_Taxi_out$Taxi_out)), xlim = range(c(Wed_Taxi_in$AirTime,Wed_Taxi_out$AirTime)), main = 'Wednesday', xlab = 'Air Time (min)', ylab = 'Taxi Time (min)')
+legend('topleft',c("Taxi In","Taxi Out"),col=c("red","blue"),pch=c(1,1))
+
+plot(Thur_Taxi_in$AirTime,Thur_Taxi_in$Taxi_in, pch = 1, cex = 1, col = 'red', ylim=range(c(Thur_Taxi_in$Taxi_in,Thur_Taxi_out$Taxi_out)), xlim = range(c(Thur_Taxi_in$AirTime,Thur_Taxi_out$AirTime)), xlab = '', ylab = '')
+
+par(new = TRUE)
+plot(Thur_Taxi_out$AirTime,Thur_Taxi_out$Taxi_out, pch = 1, cex = 1, col = 'blue', ylim=range(c(Thur_Taxi_in$Taxi_in,Thur_Taxi_out$Taxi_out)), xlim = range(c(Thur_Taxi_in$AirTime,Thur_Taxi_out$AirTime)), main = 'Thursday', xlab = 'Air Time (min)', ylab = 'Taxi Time (min)')
+legend('topleft',c("Taxi In","Taxi Out"),col=c("red","blue"),pch=c(1,1))
+
+plot(Fri_Taxi_in$AirTime,Fri_Taxi_in$Taxi_in, pch = 1, cex = 1, col = 'red', ylim=range(c(Fri_Taxi_in$Taxi_in,Fri_Taxi_out$Taxi_out)), xlim = range(c(Fri_Taxi_in$AirTime,Fri_Taxi_out$AirTime)), xlab = '', ylab = '')
+
+par(new = TRUE)
+plot(Fri_Taxi_out$AirTime,Fri_Taxi_out$Taxi_out, pch = 1, cex = 1, col = 'blue', ylim=range(c(Fri_Taxi_in$Taxi_in,Fri_Taxi_out$Taxi_out)), xlim = range(c(Fri_Taxi_in$AirTime,Fri_Taxi_out$AirTime)), main = 'Friday', xlab = 'Air Time (min)', ylab = 'Taxi Time (min)')
+legend('topleft',c("Taxi In","Taxi Out"),col=c("red","blue"),pch=c(1,1))
+
+plot(Sat_Taxi_in$AirTime,Sat_Taxi_in$Taxi_in, pch = 1, cex = 1, col = 'red', ylim=range(c(Sat_Taxi_in$Taxi_in,Sat_Taxi_out$Taxi_out)), xlim = range(c(Sat_Taxi_in$AirTime,Sat_Taxi_out$AirTime)), xlab = '', ylab = '')
+
+par(new = TRUE)
+plot(Sat_Taxi_out$AirTime,Sat_Taxi_out$Taxi_out, pch = 1, cex = 1, col = 'blue', ylim=range(c(Sat_Taxi_in$Taxi_in,Sat_Taxi_out$Taxi_out)), xlim = range(c(Sat_Taxi_in$AirTime,Sat_Taxi_out$AirTime)), main = 'Saturday', xlab = 'Air Time (min)', ylab = 'Taxi Time (min)')
+legend('topleft',c("Taxi In","Taxi Out"),col=c("red","blue"),pch=c(1,1))
+
+plot(Sun_Taxi_in$AirTime,Sun_Taxi_in$Taxi_in, pch = 1, cex = 1, col = 'red', ylim=range(c(Sun_Taxi_in$Taxi_in,Sun_Taxi_out$Taxi_out)), xlim = range(c(Sun_Taxi_in$AirTime,Sun_Taxi_out$AirTime)), xlab = '', ylab = '')
+
+par(new = TRUE)
+plot(Sun_Taxi_out$AirTime,Sun_Taxi_out$Taxi_out, pch = 1, cex = 1, col = 'blue', ylim=range(c(Sun_Taxi_in$Taxi_in,Sun_Taxi_out$Taxi_out)), xlim = range(c(Sun_Taxi_in$AirTime,Sun_Taxi_out$AirTime)), main = 'Sunday', xlab = 'Air Time (min)', ylab = 'Taxi Time (min)')
+legend('topleft',c("Taxi In","Taxi Out"),col=c("red","blue"),pch=c(1,1))
+
+```
+
+# Problem 3
+
+## Part a
+
+I am going to begin by downloading the daily data for the last five years of my data. I will be making three portfolios for the portfolio modeling based on three different areas of the world. The three areas of the world are Asia Pacific, Europe, and Latin America. I will be using the five ETF's with the highest total assets (as long as they have five years of data). I think it will be interesting using the different geographic areas. Europe represents a developed market, Asia Pacific represents a market with some developed countries and some developing, and Latin America represents developing markets.
+
+```{r ETF Setup, echo=FALSE, warning=FALSE}
+library(mosaic)
+library(quantmod)
+library(foreach)
+
+#Asia pacific getting symbols
+AsiaPac = c("EWT", "EWY", "INDA","AAXJ","VPL")
+getSymbols(AsiaPac,
+           from = "2016-08-01",
+           to = "2021-08-01")
+
+#making matrix of all of Asia pacific
+AsiaPac_returns = cbind(ClCl(adjustOHLC(EWT)),
+								ClCl(adjustOHLC(EWY)),
+								ClCl(adjustOHLC(INDA)),
+								ClCl(adjustOHLC(AAXJ)),
+								ClCl(adjustOHLC(VPL)))
+AsiaPac_returns = as.matrix(na.omit(AsiaPac_returns))
+
+
+#now doing the same for Europe and Latin America
+Europe = c("VGK", "EZU", "IEUR","EWU","FEZ")
+getSymbols(Europe,
+           from = "2016-08-01",
+           to = "2021-08-01")
+
+Europe_returns = cbind(ClCl(adjustOHLC(VGK)),
+								ClCl(adjustOHLC(EZU)),
+								ClCl(adjustOHLC(IEUR)),
+								ClCl(adjustOHLC(EWU)),
+								ClCl(adjustOHLC(FEZ)))
+Europe_returns = as.matrix(na.omit(Europe_returns))
+
+#I think four out of five of these are for Brazil, but they had they highest assets. Keeping all things equal, I will use these even if geographically it does not make too much sense.
+LatAmerica = c("EWZ","ILF", "EWW","EWZS","BRF")
+getSymbols(LatAmerica,
+           from = "2016-08-01",
+           to = "2021-08-01")
+
+LatAmerica_returns = cbind(ClCl(adjustOHLC(EWZ)),
+								ClCl(adjustOHLC(ILF)),
+								ClCl(adjustOHLC(EWW)),
+								ClCl(adjustOHLC(EWZS)),
+								ClCl(adjustOHLC(BRF)))
+LatAmerica_returns = as.matrix(na.omit(LatAmerica_returns))
+
+```
+
+## Part b
+
+The simulated portfolios of the geographic ETF's more or less returned the results expected of them based on the level of development of countries included in the ETF's. In terms of the value added to initial wealth, the developed market of Europe had the lowest growth while the developing market of Latin America had the highest growth. This makes sense with the traditional understanding that developed economies have slower growth and thus their stock markets grow at a slower rate. The value added for Asia Pacific, Europe, and Latin America are $840, $791, and $966, respectively.
+
+Surprisingly for value at risk (VaR), the results are different than expected. The VaR of European ETF's was higher than that of Asia Pacific. This indicates that, despite being a developed market, Europe may be a bad place to put investments in ETF's compared to even somewhat developed markets like Asia Pacific. Unsurprisingly, the VaR of Latin America was the highest. This indicates that high growth markets, such as Latin America, are subject to more risk. The VaR for Asia Pacific, Europe, and Latin America are $8456, $8720, and $14577, respectively.
+
+```{r ETF Portfolio Calculation, echo=FALSE}
+
+#setting the initial wealth to 100,000
+initial_wealth = 100000
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+	total_wealth = initial_wealth
+	weights = c(0.2, 0.2, 0.2, 0.2, 0.2)
+	holdings = weights * total_wealth
+	#setting the number of days to simulate over to 20 days of trading
+  n_days = 20
+	wealthtracker = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today = resample(AsiaPac_returns, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		total_wealth = sum(holdings)
+		#this us the main difference from the sample code. Here I am rebalancing the value of the holdings each day
+		holdings = weights * total_wealth
+		wealthtracker[today] = total_wealth
+	}
+	wealthtracker
+}
+
+cat('The mean of the simulation of Asia Pacific ETFs is',mean(sim1[,n_days]),'\n')
+cat('The mean difference from initial wealth of the simulation of Asia Pacific ETFs is',mean(sim1[,n_days] - initial_wealth),'\n')
+hist(sim1[,n_days]- initial_wealth,breaks = 30, main = "Simulation of Wealth Change over 20 Days of Trading Asia Pacific ETF's", xlab = "Money (dollars $)")
+cat('The value at risk of the Asia Pacific ETFs is',abs(quantile(sim1[,n_days]- initial_wealth, prob=0.05)),'\n')
+
+#now I am going to do the same for the Europe and Latin American ETF's
+initial_wealth = 100000
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+	total_wealth = initial_wealth
+	weights = c(0.2, 0.2, 0.2, 0.2, 0.2)
+	holdings = weights * total_wealth
+	#setting the number of days to simulate over to 20 days of trading
+  n_days = 20
+	wealthtracker = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today = resample(Europe_returns, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		total_wealth = sum(holdings)
+		#this us the main difference from the sample code. Here I am rebalancing the value of the holdings each day
+		holdings = weights * total_wealth
+		wealthtracker[today] = total_wealth
+	}
+	wealthtracker
+}
+
+cat('The mean of the simulation of Europe ETFs is',mean(sim1[,n_days]),'\n')
+cat('The mean difference from initial wealth of the simulation of Europe ETFs is',mean(sim1[,n_days] - initial_wealth),'\n')
+hist(sim1[,n_days]- initial_wealth,breaks = 30, main = "Simulation of Wealth Change over 20 Days of Trading Europe ETF's", xlab = "Money (dollars $)")
+cat('The value at risk of the Europe ETFs is',abs(quantile(sim1[,n_days]- initial_wealth, prob=0.05)),'\n')
+
+
+initial_wealth = 100000
+sim1 = foreach(i=1:5000, .combine='rbind') %do% {
+	total_wealth = initial_wealth
+	weights = c(0.2, 0.2, 0.2, 0.2, 0.2)
+	holdings = weights * total_wealth
+	#setting the number of days to simulate over to 20 days of trading
+  n_days = 20
+	wealthtracker = rep(0, n_days)
+	for(today in 1:n_days) {
+		return.today = resample(LatAmerica_returns, 1, orig.ids=FALSE)
+		holdings = holdings + holdings*return.today
+		total_wealth = sum(holdings)
+		#this us the main difference from the sample code. Here I am rebalancing the value of the holdings each day
+		holdings = weights * total_wealth
+		wealthtracker[today] = total_wealth
+	}
+	wealthtracker
+}
+
+cat('The mean of the simulation of Latin American ETFs is',mean(sim1[,n_days]),'\n')
+cat('The mean difference from initial wealth of the simulation of Latin American ETFs is',mean(sim1[,n_days] - initial_wealth),'\n')
+hist(sim1[,n_days]- initial_wealth, breaks = 30, main = "Simulation of Wealth Change over 20 Days of Trading Latin American ETF's", xlab = "Money (dollars $)")
+cat('The value at risk of the Latin American ETFs is',abs(quantile(sim1[,n_days]- initial_wealth, prob=0.05)),'\n')
+
+```
+
+# Problem 4
+
+## Part a
+
+I am going to use Kmeans++ clustering to get "clusters" of NutrientH2O's market segments. Hopefully, these clusters give us the different "types" of people interested in their products. I am going to begin by processing the data. Then I will run Kmeans++ with different K's and visualize the data. Finally, I will use the gap statistic to get my "best" K and then compare with previous visualizations. I will use my best K to analyze what clusters or market segments are buying Nutrient H2O's products.
+
+```{r Preprocessing Kmeans, echo=FALSE, warning=FALSE}
+
+library(ggplot2)
+library(LICORS)
+library(foreach)
+library(mosaic)
+
+setwd("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data")
+twitters = read.csv('social_marketing.csv', header=TRUE)
+
+#So for the matrix, I choose to remove spam, adult, ID of the twitter user, and chatter. I removed chatter since there was a lot that could have gone into it (based on the Turk) and could lead to a lot of unnecessary noise.
+Tweets = twitters[,(3:35)]
+Tweets = scale(Tweets, center=TRUE, scale=TRUE)
+
+Tweets_mean = attr(Tweets,"scaled:center")
+Tweets_sd = attr(Tweets,"scaled:scale")
+
+```
+
+## Part b
+
+I am just going to quickly analyze the first Kmeans++ of K=5 because this model is not our final model. The first cluster appears to be users who may not tweet much because they are in college and in do gaming/shopping. This first cluster is likely a market segment of typical college students. The second cluster and third clusters are similar but differ in that the second cluster has outdoors and personal fitness and the third cluster has fashion and beauty. The second cluster is likely a market segment of fitness buffs, people who like to go out and hike/jog outside. The third cluster is likely people who spend too much time on twitter and instagram posting pictures of themselves, the Kim Kardashian type of person.
+
+```{r Kmeans++, echo=FALSE}
+
+#I start by running a Kmeans++ of 5 clusters
+clust_5 = kmeanspp(Tweets, k=5, nstart=30)
+
+#I then look at the top 3 clusters of each kmeans++ just so I can get an idea of how kmeans++ is grouping the data
+print("K=5")
+print("cluster 1 max values")
+tail(sort(clust_5$center[1,]*Tweets_sd + Tweets_mean),5)
+
+print("cluster 2 max values")
+tail(sort(clust_5$center[2,]*Tweets_sd + Tweets_mean),5)
+
+print("cluster 3 max values")
+tail(sort(clust_5$center[3,]*Tweets_sd + Tweets_mean),5)
+
+#I then repeat the previous steps for 3 cluster and 10 cluster kmeans
+clust_3 = kmeanspp(Tweets, k=3, nstart=30)
+
+print("K=3")
+print("cluster 1 max values")
+tail(sort(clust_3$center[1,]*Tweets_sd + Tweets_mean),5)
+
+print("cluster 2 max values")
+tail(sort(clust_3$center[2,]*Tweets_sd + Tweets_mean),5)
+
+print("cluster 3 max values")
+tail(sort(clust_3$center[3,]*Tweets_sd + Tweets_mean),5)
+
+clust_10 = kmeanspp(Tweets, k=10, nstart=30)
+
+print("K=10")
+print("cluster 1 max values")
+tail(sort(clust_10$center[1,]*Tweets_sd + Tweets_mean),5)
+
+print("cluster 2 max values")
+tail(sort(clust_10$center[2,]*Tweets_sd + Tweets_mean),5)
+
+print("cluster 3 max values")
+tail(sort(clust_10$center[3,]*Tweets_sd + Tweets_mean),5)
+
+```
+
+## Part c
+
+The market segmentation of twitter followers is shown in the facet plot below. The facet plot contains a bar chart for each cluster that shows the five largest tweet types for that cluster. Just to look at one of the clusters as an example, the cluster with high college and online gaming tweets is probably a college student who plays video games in his free time. Another cluster, would be the one high in food, school, religion, and parenting which is likely WASP (White Anglo-Saxon Protestant) type parents. Some of the clusters have very low values for all their tweet types and these are likely the "in-between" clusters that group values between the clusters that are more cohesive. (*as a note I think Rmarkdown is messing with the graph labels a bit since the aspect ratio is smaller than normal)
+
+```{r Kmeans++ Optimized K, echo=FALSE,warning=FALSE}
+library(cluster)
+
+clusGap(x = Tweets, FUNcluster = kmeanspp, K.max = 20, B = 15, nstart = 30)
+
+#clusGap gave me a K = 15
+library(ggplot2)
+clust_15 = kmeanspp(Tweets, k=15, nstart=30)
+#this is basically creating a dataframe of all the clusters so I can plot them later
+all_clust = NULL
+for (i in 1:15) {
+  fac = (as.data.frame(rep(i,5)))
+  clust_t = (as.data.frame(tail(sort(clust_15$center[i,]*Tweets_sd + Tweets_mean),5)))
+  clust_t$Tweet_type = row.names(clust_t)
+  rownames(clust_t) = ((i*5)-4):(i*5)
+  new_rows = cbind(fac,clust_t)
+  all_clust = rbind(all_clust,new_rows)
+}
+
+colnames(all_clust)[1] = 'factor'
+colnames(all_clust)[2] = 'Tweet_number'
+
+all_clust$factor = as.factor(all_clust$factor)
+
+#this facet plots a bar chart for each of the clusters and shows the five largest tweet types for each cluster
+ggplot(all_clust, aes(Tweet_type, Tweet_number)) +
+  ylab('Number of Tweets')  +
+  geom_bar(stat="identity") +
+  facet_wrap(~ factor,ncol=5)+
+  geom_text(aes(label=Tweet_type), color = 'blue', hjust=0.3, size=2.5, angle = 90) +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank())+
+  xlab('Type of Tweet')
+
+```
+
+# Problem 5
+
+## Part a
+
+I will start by getting the texts for documents in the training set. I will then do preprocessing including applying PCA on the TF-IDF matrix in the next chunk. After preprocessing, I will move on to applying the same preprocessing to the testing set. From there, I will apply the KNN model to try to predict the author of an article from it's nearest neighbors.
+
+For the chunk below, I was focused on creating my corpus from the documents. Due to where the files are I had to do some funky working directory calls but I believe that it all ends up being good in the end.
+
+```{r Initial text mining, echo=FALSE, warning=FALSE}
+library(tm) 
+library(tidyverse)
+library(slam)
+library(proxy)
+
+#setting up my readerplain function here first
+readerPlain = function(fname){
+				readPlain(elem=list(content=readLines(fname)), 
+							id=fname, language='en') }
+
+#so based on how I set up my files a long time ago, I have to set up a new working directory to make it easier to call the files
+setwd("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data/ReutersC50/C50train")
+#list.files is pretty cool since this is all my author names
+l = list.files('.')
+n = length(l)
+doc_list = NULL
+labels = NULL
+train_doc = NULL
+
+#this is the for loop to prepare my document to be read
+for (i in 1:n) {
+  setwd(paste("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data/ReutersC50/C50train/", l[i], sep=""))
+  doc_hold = list.files('.')
+  doc_list = append(doc_list,doc_hold)
+  labels = append(labels, rep(l[i], length(doc_hold)))
+  #had to put this inside the loop since I couldn't call it from the other working directories
+  train_doc = append(train_doc, lapply(doc_hold, readerPlain)) 
+}
+
+
+#setting up the names for the documents and making the corpus
+names(train_doc) = doc_list
+names(train_doc) = sub('.txt', '', names(train_doc))
+reuters_corpus_train = Corpus(VectorSource(train_doc))
+
+```
+
+## Part b
+
+The notable take away from the chunk below is the factors I choose for the sparcity of my matrix and the number of dimensions I choose to reduce to. I choose a sparcity of .975 meaning any words that do not appear in 63 documents will be removed from the matrix. I think there is a limitation in that a word could be used a lot by one author but not a lot by the other authors. 63 documents is more than any one author has written. The number of dimensions chosen for the PCA is 80 dimensions which explains about 40% of the variance. The reason and limitations behind these choices will be explained a bit later.
+
+```{r PreProcessing Corpus, echo=FALSE, warning=FALSE}
+
+my_tfidf = function(x) {
+  term_freq = x/rowSums(x)
+  doc_freq = log(colSums(x > 0) + 1) - log(nrow(x))
+  out = scale(term_freq, center=FALSE, scale=-doc_freq) # tf-idf
+  out
+}
+
+#just the normal stuff to get 
+reuters_corpus_train = tm_map(reuters_corpus_train, content_transformer(tolower))
+reuters_corpus_train = tm_map(reuters_corpus_train, content_transformer(removeNumbers))
+reuters_corpus_train = tm_map(reuters_corpus_train, content_transformer(removePunctuation))
+reuters_corpus_train = tm_map(reuters_corpus_train, content_transformer(stripWhitespace))
+reuters_corpus_train = tm_map(reuters_corpus_train, content_transformer(removeWords), stopwords("SMART"))
+
+#creating my term document matrix
+tdm = (TermDocumentMatrix(reuters_corpus_train, control = list()))
+
+#removing sparce terms
+DTM = removeSparseTerms(tdm, 0.975)
+DTM = as.matrix(DTM)
+
+#applying tf_idf and then transposing to get documents as rows
+DTM = my_tfidf(DTM)
+DTM_transpose = t(DTM)
+DTM_transpose = DTM_transpose[, order(colnames(DTM_transpose))]
+
+#running PCA on the previous matrix
+Z = prcomp(DTM_transpose, rank = 80)
+
+```
+
+## Part c
+
+```{r Testing text mining & PreProcessing, echo=FALSE, warning=FALSE}
+
+#The testing dataset is pretty much the same as the first two parts except I apply PCA weights rather perform PCA
+setwd("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data/ReutersC50/C50test")
+#list.files is pretty cool since this is all my author names
+l = list.files('.')
+n = length(l)
+doc_list = NULL
+labels_test = NULL
+test_doc = NULL
+
+#this is the for loop to prepare my document to be read
+for (i in 1:n) {
+  setwd(paste("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data/ReutersC50/C50test/", l[i], sep=""))
+  doc_hold = list.files('.')
+  doc_list = append(doc_list,doc_hold)
+  labels_test = append(labels_test, rep(l[i], length(doc_hold)))
+  #had to put this inside the loop since I couldn't call it from the other working directories
+  test_doc = append(test_doc, lapply(doc_hold, readerPlain)) 
+}
+
+
+#setting up the names for the documents and making the corpus
+names(test_doc) = doc_list
+names(test_doc) = sub('.txt', '', names(test_doc))
+reuters_corpus_test = Corpus(VectorSource(test_doc))
+
+reuters_corpus_test = tm_map(reuters_corpus_test, content_transformer(tolower))
+reuters_corpus_test = tm_map(reuters_corpus_test, content_transformer(removeNumbers))
+reuters_corpus_test = tm_map(reuters_corpus_test, content_transformer(removePunctuation))
+reuters_corpus_test = tm_map(reuters_corpus_test, content_transformer(stripWhitespace))
+reuters_corpus_test = tm_map(reuters_corpus_test, content_transformer(removeWords), stopwords("SMART"))
+
+tdm_test = (TermDocumentMatrix(reuters_corpus_test, control = list()))
+X_test = as.matrix(tdm_test)
+DTM_final_test = X_test[rownames(X_test) %in% rownames(DTM),]
+
+DTM_final_test = my_tfidf(DTM_final_test)
+DTM_transpose_test = t(DTM_final_test)
+DTM_transpose_test = DTM_transpose_test[, order(colnames(DTM_transpose_test))]
+
+#applying PCA weights
+Z_test = predict(Z,DTM_transpose_test)
+
+
+```
+
+## Part d
+
+I ran a knn model with a k of 10 to try to predict the author of a document based on the PCA values of the testing set. The end result of the knn model is a training accuracy of 66% and a testing accuracy of 40%. As we can see at the k = 10 range, the training of 66% indicates that the training documents are very "close" to each other and that there is good seperation between the different authors. An accuracy of 40% may not seem that great but the baseline accuracy of this model is 2% due to there being 50 different possible authors. I would like a higher testing accuracy, but I believe given the limitation of the original data that an accuracy of over 40% is actually somewhat impressive.
+
+I think the knn model (and any model chosen) suffers from the curse of dimensionality. Even running PCA to try to capture around 40% of the variance, the amount of dimensions is 80 which introduces a large amount of noise into the model. I believe a lot of the noise comes from the fact that the article topics can be far ranging making it hard to isolate the word choices corresponding to an author's writing style.
+
+I believe the model could be optimized by using for loops to cross validate for the best testing accuracy. The best cross validated model would actually use three nested for loops around the factors of k-value, the sparcity of the DTM matrix, and the dimension reduction by PCA. Unfortunately due to both computational and run time limitations (I think it would probably take at least a few hours to do this which I do not really have), I was only able to adjust the factors one at a time and play around to improve my testing accuracy.
+
+
+```{r Modelling, echo=FALSE}
+library(class)
+
+knn.pred_10 = knn(Z$x,Z$x,labels,k=10)
+accuracy_matrix = as.data.frame(table(Actual = labels, Predicted = knn.pred_10))
+accuracy_correct = accuracy_matrix[accuracy_matrix[,1]==accuracy_matrix[,2],]
+accuracy_train = sum(accuracy_correct[,3])/2500
+
+#running knn at k = 15
+knn.pred_10 = knn(Z$x,Z_test,labels,k=10)
+
+#just a complex way of getting accuracy
+accuracy_matrix = as.data.frame(table(Actual = labels_test, Predicted = knn.pred_10))
+accuracy_correct = accuracy_matrix[accuracy_matrix[,1]==accuracy_matrix[,2],]
+accuracy = sum(accuracy_correct[,3])/2500
+
+```
+
+# Problem 6
+
+## Part a
+
+This chunk is processing the text file, factoring the baskets together, and reindexing to prepare for apriori in the next part. I do not know if there was an easier way to read in the text file, but when I read it in the text file had four columns. The column corresponded to the different items in a basket in the row in the text file. I had to resort the data frame such that a apriori could be run on it.
+
+```{r Data cleaning, echo=FALSE,warning=FALSE}
+library(tidyverse)
+library(arules)
+library(arulesViz)
+
+setwd("~/UT MSBA/Machine Learning/STA380-master/STA380-master/data")
+
+
+
+#I opened the text file and convert every basket to a factor
+groceries_init = read.csv("groceries.txt", header = FALSE)
+#so this lists each item in a new column so I will have to do some funky indexing to get it how I want it
+groceries_init = cbind(1:nrow(groceries_init),groceries_init)
+
+#preparing matrix for new concatenating row values
+groceries_factor = matrix(nrow = 4*nrow(groceries_init),ncol = 2)
+i = 0
+
+for (row_num in 1:nrow(groceries_init)) {
+  for (item in 2:length(groceries_init[row_num,])) {
+    #this just basically makes it so the elements are in order with the row they came from
+    #so you get basically get all the items in the second column with the basket their from in the first column
+    i = i+1
+    groceries_factor[i,1] = row_num
+    groceries_factor[i,2] = groceries_init[row_num,item]
+  }
+  
+}
+#converting back into data frame
+groceries_factor = as.data.frame(groceries_factor)
+
+#relabeling and making factors out of the rows
+colnames(groceries_factor)[1] = "basket"
+colnames(groceries_factor)[2] = "item"
+groceries_factor = subset(groceries_factor, item != "")
+groceries_factor$basket = factor(groceries_factor$basket)
+
+
+
+```
+
+## Part b
+
+The important part of the association rule mining is the support and confidence parameters chosen. So the unique number groceries is 169 and the number of baskets is 15,296 which means there should be lots of combinations of baskets. However for my apriori, I will try to choose a support and confidence that gives me around 1000 association rules. For support, each basket has an average 2.83 items out of a possible 169 or a 1.7% chance of an item being in a basket on average. I am going to take a support value of 1/10 of this at 0.0017. Setting my support value to a set number, I varied my confidence until I had about 1000 association rules. Finally, I take half the rules into my gephi plot sorted by the highest values of lift.
+
+```{r Association rule mining, echo=FALSE}
+
+n_unique = length(table(groceries_factor[,2]))
+
+#this is just preprocessing it for apriori
+groceries = split(x=groceries_factor$item, f=groceries_factor$basket)
+groceries = lapply(groceries, unique)
+groceries_tran = as(groceries, "transactions")
+
+#this is the creation of my association rules and graph for gephi
+groceries_rules = apriori(groceries_tran, 
+                          parameter=list(support=.0017, confidence=.005, maxlen=4))
+plot(groceries_rules, measure = c("support", "lift"), shading = "confidence", jitter = 0)
+plot(groceries_rules, method='two-key plot',jitter = 0)
+sub1 = subset(groceries_rules, subset=confidence > 0.005 & support > 0.0017)
+
+plot(head(sub1, 100, by='lift'), method='graph')
+
+saveAsGraph(head(groceries_rules, n = length(sub1)/2, by = "lift"), file = "groceries.graphml")
+
+```
